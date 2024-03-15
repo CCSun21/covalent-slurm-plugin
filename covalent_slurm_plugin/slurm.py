@@ -45,6 +45,7 @@ class ExecutorPluginDefaults(BaseModel):
 
     username: Optional[str] = ""
     address: Optional[str] = ""
+    port: int = 22
     ssh_key_file: Optional[str] = ""
     cert_file: Optional[str] = None
     remote_workdir: Optional[str] = "covalent-workdir"
@@ -90,6 +91,7 @@ class SlurmExecutor(AsyncBaseExecutor):
     Args:
         username: Username used to authenticate over SSH.
         address: Remote address or hostname of the Slurm login node.
+        port: Port used to connect to the remote cluster.
         ssh_key_file: Private RSA key used to authenticate over SSH (usually at ~/.ssh/id_rsa).
         cert_file: Certificate file used to authenticate over SSH, if required (usually has extension .pub).
         remote_workdir: Working directory on the remote cluster.
@@ -118,6 +120,7 @@ class SlurmExecutor(AsyncBaseExecutor):
         self,
         username: Optional[str] = None,
         address: Optional[str] = None,
+        port: Optional[int] = 22,
         ssh_key_file: Optional[str] = None,
         cert_file: Optional[str] = None,
         remote_workdir: Optional[str] = None,
@@ -148,6 +151,7 @@ class SlurmExecutor(AsyncBaseExecutor):
 
         self.username = username or get_config("executors.slurm.username")
         self.address = address or get_config("executors.slurm.address")
+        self.port = port or get_config("executors.slurm.port")
         self.ssh_key_file = ssh_key_file or get_config("executors.slurm.ssh_key_file")
         self.cert_file = cert_file or get_config("executors.slurm").get("cert_file", None)
         self.remote_workdir = remote_workdir or get_config("executors.slurm.remote_workdir")
@@ -212,6 +216,9 @@ class SlurmExecutor(AsyncBaseExecutor):
 
         if not self.address:
             raise ValueError("address is a required parameter in the Slurm plugin.")
+        
+        if not self.port:
+            raise ValueError("port is a required parameter in the Slurm plugin.")
 
         if not self.ssh_key_file:
             raise ValueError("ssh_key_file is a required parameter in the Slurm plugin.")
@@ -235,6 +242,7 @@ class SlurmExecutor(AsyncBaseExecutor):
         try:
             conn = await asyncssh.connect(
                 self.address,
+                self.port,
                 username=self.username,
                 client_keys=client_keys,
                 known_hosts=None,
@@ -243,6 +251,7 @@ class SlurmExecutor(AsyncBaseExecutor):
         except Exception as e:
             raise RuntimeError(
                 f"Could not connect to host: '{self.address}' "
+                f"on port: '{self.port}' "
                 f"as user: '{self.username}' "
                 f"with key file: '{self.ssh_key_file}'"
             ) from e
